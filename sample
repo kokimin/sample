@@ -1,0 +1,6 @@
+    this.boardFreeCat.forEach((o) => {
+      if (o.cd_k === 'hobby') {
+        console.log(o);
+        o.cat = '1111';
+      }
+    });
