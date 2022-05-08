@@ -4,3 +4,302 @@
         o.cat = '1111';
       }
     });
+
+
+
+export default {
+  methods: {
+    // columns(getCodes) 공통코드 이용하여 select box 설정
+    gridSetCombo(columns) {
+      columns.filter((o) => o.getCodes).forEach((column) => {
+        const codes = this.getCodes(column.getCodes);
+        if (codes.length > 0) {
+          column.values = codes.map((o) => o.cmmnCd);
+          column.labels = codes.map((o) => o.cmmnCdNm);
+        }
+      });
+    },
+    // 1Depth select box 설정
+    gridLookUpCombo(array) {
+      return {
+        levels: 1, keys: array.map((o) => o.cmmnCd), values: array.map((o) => o.cmmnCdNm),
+      };
+    },
+    // 1Depth select box 설정에 따라서 2Depth select box 설정
+    async gridLookUpComboRelation(array, id, levels = 2) {
+      const keys = [];
+      const values = [];
+      if (array.length > 0) {
+        await this.putCode(array);
+        array.forEach((code) => {
+          this.getCodes(code).forEach((item) => {
+            keys.push([item.cmmnGrpCd, item.cmmnCd]);
+            values.push(item.cmmnCdNm);
+          });
+        });
+      }
+      return {
+        id, levels, keys, values,
+      };
+    },
+    // 그리드 시작일자, 종료일자 날짜비교
+    gridSingleDataSelected(parameters) {
+      const {
+        rowIndex, date, fieldName, provider, gridView,
+      } = parameters;
+      provider.updateRow(rowIndex, { [fieldName]: date });
+
+      if (fieldName === 'sttDate') {
+        if (provider.getValue(rowIndex, 'endDate')) {
+          const startDay = date;
+          const endDay = provider.getValue(rowIndex, 'endDate');
+          if (startDay > endDay) {
+            provider.updateRow(rowIndex, { endDate: '' });
+          }
+        }
+      }
+
+      if (fieldName === 'endDate') {
+        if (provider.getValue(rowIndex, 'sttDate')) {
+          const startDay = provider.getValue(rowIndex, 'sttDate');
+          const endDay = date;
+          if (startDay > endDay) {
+            if (gridView.getColumnProperty('sttDate', 'readOnly')) {
+              this.$snackbar('시작일자 이후로 선택해 주세요.');
+              provider.updateRow(rowIndex, { [fieldName]: '' });
+            } else {
+              provider.updateRow(rowIndex, { sttDate: '' });
+            }
+          }
+        }
+      }
+    },
+    // row 상태가 등록, 수정에 따라서 cell 편집 가능 여부 설정
+    setEditableColumes(dataProvider, gridView, trueCells = [], falseCells = []) {
+      gridView.onCurrentRowChanged = (grid, oldRow, newRow) => {
+        const curr = grid.getCurrent();
+        const rowState = newRow > -1 ? dataProvider.getRowState(newRow) : '';
+        const editable = (newRow === -1 && curr.itemIndex > -1) || (rowState === 'created');
+
+        // grid.setEditOptions({ editable: true });
+        // grid.getColumns().forEach((col) => {
+        //   grid.setColumnProperty(col._name, 'editable', true);
+        // });
+
+        trueCells.forEach((cell) => {
+          if (gridView.getColumnProperty(cell, 'styleName') === 'range-cal-bs-grid icon-hw-ic-form-cal-thin') {
+            grid.setColumnProperty(cell, 'readOnly', !editable);
+          } else {
+            grid.setColumnProperty(cell, 'editable', editable);
+          }
+          // 체크박스는 editable = false 로 사용 해야 하고 readOnly로 이용해야 함
+          const renderer = gridView.getColumnProperty(cell, 'renderer');
+          if (renderer && renderer?.type === 'check') {
+            grid.setColumnProperty(cell, 'readOnly', !editable);
+            grid.setColumnProperty(cell, 'editable', false);
+          }
+        });
+        falseCells.forEach((cell) => {
+          if (gridView.getColumnProperty(cell, 'styleName') === 'range-cal-bs-grid icon-hw-ic-form-cal-thin') {
+            grid.setColumnProperty(cell, 'readOnly', true);
+          } else {
+            grid.setColumnProperty(cell, 'editable', false);
+          }
+        });
+      };
+    },
+    // checkKeyDuplicate(dataProvider, keys = []) {
+    //   const rows = dataProvider.getJsonRows(0, -1);
+    //   const result = {};
+    //   // let value = '';
+    //   keys.forEach((key) => {
+    //     console.log(key);
+    //     rows.forEach((row, index) => {
+    //       console.log(row[key], index);
+    //     });
+    //   });
+
+    //   return result;
+    // },
+    // 그리드 버튼 툴바 disable 일괄 변경
+    setbuttonDisableConfig(columns, isBoolean) {
+      Object.entries(columns).forEach(([key]) => {
+        columns[key] = isBoolean;
+      });
+    },
+    gridFillJsonData(dataProvider, gridView, datas) {
+      if (gridView.checkBar.showAll) {
+        gridView.checkItem(0, false);
+      }
+      gridView.setRowStyleCallback();
+      dataProvider.fillJsonData(datas, { fillMode: 'set' });
+    },
+    // 컬럼설정 값 가져오기
+    getRequiredKey(array, col, isBoolean) {
+      return Array.from(new Set(array.filter((o) => o[col] === isBoolean).map((o) => o.name)));
+    },
+    // 동적 컬럼 생성
+    setDynamicGridColumns(dataProvider, gridView, gridSet, fieldDatas) {
+      console.log('setDynamicGridColumns === 실행');
+      const fields = fieldDatas.map((item) => ({
+        fieldId: item.fieldId,
+        fieldName: item.fieldName,
+        fieldDesc: item.fieldDescription,
+        dataType: 'text',
+      }));
+      const columns = fieldDatas.map((item) => ({
+        name: item.fieldName,
+        fieldName: item.fieldName,
+        type: 'data',
+        width: '120',
+        header: {
+          text: item.fieldDescription,
+        },
+        placeHolder: `${item.fieldDescription}를 입력해 주세요.`,
+        styleName: 'text-left',
+      }));
+
+      gridSet.fields = Object.prototype.hasOwnProperty.call(gridSet, 'defaultFields')
+        ? gridSet.defaultFields.concat(fields)
+        : fields;
+
+      gridSet.columns = Object.prototype.hasOwnProperty.call(gridSet, 'defaultColumns')
+        ? gridSet.defaultColumns.concat(columns)
+        : columns;
+
+      gridView.setColumns(gridSet.columns);
+      dataProvider.setFields(gridSet.fields);
+    },
+    // 동적 컬럼 변경
+    gridDynamicColumnToJson(dataProvider, fields) {
+      console.log('gridDynamicColumnToJson === 실행');
+      const fieldsFindObj = (key) => fields.find((o) => o.fieldName === key);
+      const result = [];
+      this.getProviderJson(dataProvider).forEach((item, index) => {
+        const children = [];
+        Object.keys(item).forEach((key) => {
+          const field = fieldsFindObj(key);
+          if (field) {
+            children.push({ ...field, fieldVal: item[key] });
+          }
+        });
+
+        result.push({ ...item, children, idx: index });
+      });
+
+      return result;
+    },
+    // 키 중복 체크
+    checkKeyDuplicate(dataProvider, gridView, keys = []) {
+      gridView.commit();
+
+      const duplicates = [];
+      this.getProviderJson(dataProvider, 'deleted').reduce((prev, cur, idx) => {
+        const tempObj = {};
+        keys.forEach((key) => { tempObj[key] = cur[key]; });
+        const isDuplicate = prev.find((o) => JSON.stringify(o) === JSON.stringify(tempObj));
+        if (!isDuplicate) {
+          prev.push(tempObj);
+        } else {
+          duplicates.push(idx);
+        }
+        return prev;
+      }, []);
+
+      gridView.setRowStyleCallback();
+      if (duplicates.length > 0) {
+        gridView.setRowStyleCallback((grid, item) => {
+          const ret = {};
+          if (duplicates.includes(item._dataRow)) {
+            ret.styleName = 'rg-duplicate-row';
+          }
+          return ret;
+        });
+      }
+      if (duplicates.length > 0) {
+        const duplicateKeyName = gridView.getColumns().filter((o) => keys.includes(o.name)).map((o) => o.header.text).join(', ');
+        this.$snackbar(`${duplicateKeyName} 중에서 중복된 Key가 존재합니다.`);
+      }
+      return duplicates.length === 0;
+    },
+    // 저장하기전 Validation 체크
+    checkKeyValid(dataProvider, gridView, keys = []) {
+      if (dataProvider.getJsonRows(0, -1, true).length === 0) {
+        this.$snackbar('조회된 데이터가 존재하지 않습니다.');
+        return false;
+      }
+
+      gridView.commit();
+      const checkValidate = gridView.validateCells(null, false);
+
+      if (checkValidate) {
+        this.$snackbar('필수 값을 입력해 주세요.');
+        gridView.setCurrent({ itemIndex: checkValidate[0].dataRow, column: checkValidate[0].column });
+        gridView.validateCells(null, false);
+        return false;
+      }
+
+      if (this.getProviderJson(dataProvider).length === 0) {
+        this.$snackbar('변경된 데이터가 없습니다.');
+        return false;
+      }
+
+      if (keys.length > 0) {
+        const checkKeys = this.checkKeyDuplicate(dataProvider, gridView, keys);
+        return checkKeys;
+      }
+
+      return true;
+    },
+    getProviderJson(dataProvider, __rowState = 'none') {
+      return dataProvider.getJsonRows(0, -1, true).filter((o) => o.__rowState !== __rowState);
+    },
+    getProviderJsonConvert(dataProvider, GridSet) {
+      if (GridSet?.isConvert) {
+        const convertData = (item) => {
+          Object.keys(item).forEach((key) => {
+            const columnProperty = GridSet.columns.find((o) => o.name === key);
+            if (columnProperty?.isConvertColumns) {
+              if (columnProperty?.editor?.mask?.editMask === 'bc:de') {
+                if (item[key] && item[key].indexOf(':') !== -1) {
+                  item[key] = item[key].replace(':', '');
+                }
+              }
+              if (key === 'endDate') {
+                item.endDate = item.endDate ? item.endDate : '9999.12.31';
+              }
+              console.log('getProviderJsonConvert', key, item);
+            }
+          });
+
+          return item;
+        };
+
+        return this.getProviderJson(dataProvider).map((item) => ({
+          ...convertData(item),
+        }));
+      }
+      return this.getProviderJson(dataProvider);
+    },
+    dataProviderClearRows(dataProvider) {
+      dataProvider.clearRows();
+    },
+    // 그리드 공통코드 세팅 ex) 컬럼목록에 프로퍼티 추가 commonCode: 'BEN00006',
+    setCommonCode(columns, includeAll = false) {
+      columns.forEach((o) => {
+        if (Object.prototype.hasOwnProperty.call(o, 'commonCode')) {
+          const codes = this.getCodes(o.commonCode);
+          if (codes) {
+            if (includeAll) { codes.unshift({ cmmnCd: '', cmmnCdNm: '전체' }); }
+            o.values = codes.map((c) => (c.cmmnCd));
+            o.labels = codes.map((c) => (c.cmmnCdNm));
+          } else {
+            console.log(`[ ${o.commonCode} ] putCode 필요`);
+          }
+        }
+      });
+    },
+  },
+  computed: {
+  },
+};
