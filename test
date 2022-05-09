@@ -1,0 +1,55 @@
+const handleSaveClick = useCallback(() => {
+    const requiredKeys = gridApi.api
+      .getColumnDefs()
+      .filter((o: any) => o.isRequired)
+      .map((o: any) => o.field);
+
+    GridCommon.getRows(gridApi, true).forEach((obj: any) => {
+      Object.keys(obj).forEach(key => {
+        console.log(requiredKeys, key);
+        if (requiredKeys.includes(key)) {
+          console.log(requiredKeys, key);
+        }
+        // const field = fieldsFindObj(key);
+        // if (field) {
+        //   children.push({ ...field, fieldVal: item[key] });
+        // }
+      });
+
+      // if (requiredKeys.includes(o.name)) {
+      //
+      // }
+      // Object.keys(item).forEach((key) => {
+      //   const field = fieldsFindObj(key);
+      //   if (field) {
+      //     children.push({ ...field, fieldVal: item[key] });
+      //   }
+      // });
+    });
+
+    // const duplicates = [];
+    // GridCommon.getRows(gridApi, true).reduce((prev: any, cur: string, idx: number) => {
+    //   console.log(requiredColumns, prev, cur, idx);
+    //   //map((o: any) => o.field))
+    //   // const tempObj = {};
+    //   // keys.forEach((key) => { tempObj[key] = cur[key]; });
+    //   // const isDuplicate = prev.find((o) => JSON.stringify(o) === JSON.stringify(tempObj));
+    //   // if (!isDuplicate) {
+    //   //   prev.push(tempObj);
+    //   // } else {
+    //   //   duplicates.push(idx);
+    //   // }
+    //   return prev;
+    // }, []);
+
+    // const rows = GridCommon.getRows(gridApi, true).map((o: any) => {
+    //   return {
+    //     ...o,
+    //     sc_pull_area_nm: GridCommon.getRefFieldName(gridApi, 'sc_pull_area_id', o.sc_pull_area_id),
+    //   };
+    // });
+    //
+    // api.post(`/index/setting/${gridConfig.id}/set`, rows).then((res: any) => {
+    //   fetchList();
+    // });
+  }, [gridApi]);
